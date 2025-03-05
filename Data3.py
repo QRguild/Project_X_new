@@ -27,7 +27,7 @@ class Data:
         self.update_instrument()
         self.kws = KiteTicker(api_key=Data.api_key,access_token=Data.access_token)
         self.options_contracts = {}         # stores the option contracts
-        self.synthetic_future = {}          # stores the synthetic future prices with strike as key
+        self.synthetic_future = {}         
         return
 
     def update_instrument(self):
