@@ -10,3 +10,4 @@ example.ipynb
 experiment_strategy.ipynb
 index.txt
 vwap.txt
+__pycache__
