@@ -242,9 +242,9 @@ class WeightedNiftyIndexVWAP(Thread):
                     file.write(str(self.vwap_index_value))
                 with open('index.txt','w') as file:
                     file.write(str(self.latest_prices[256265]))
-                with open(self.filename,'a') as file:
-                    writer = csv.writer(file)
-                    writer.writerow([datetime.now().strftime("%Y-%m-%d %H:%M:%S"),self.vwap_index_value])
+                # with open(self.filename,'a') as file:
+                #     writer = csv.writer(file)
+                #     writer.writerow([datetime.now().strftime("%Y-%m-%d %H:%M:%S"),self.vwap_index_value])
                 time.sleep(0.5)  
             except Exception as e:
                 print(f"Error calculating VWAP: {e}")
@@ -277,7 +277,7 @@ class WeightedNiftyIndexVWAP(Thread):
         print("Connecting WebSocket")
         self.kws.connect(threaded=True)
         
-        self.initialise_csv()
+        # self.initialise_csv()
 
         # Keep the main thread running
         try:
