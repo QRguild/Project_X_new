@@ -82,16 +82,20 @@ class DataStream:
         ws.set_mode(ws.MODE_FULL, self.instrument_tokens)  # Full mode for price and volume data
 
     def place_buy_order(self,tradingsymbol:str,quantity:int):
+        best_price = self.get_best_price(tradingsymbol,'sell')
+        self.kite.place_order(variety='regular',exchange=self.exchange,tradingsymbol=tradingsymbol,transaction_type='BUY',quantity=quantity,order_type='LIMIT',price=best_price,product='NRML')
         return
     
     def place_sell_order(self,tradingsymbol:str,quantity:int):
+        best_price = self.get_best_price(tradingsymbol,'buy')
+        self.kite.place_order(variety='regular',exchange=self.exchange,tradingsymbol=tradingsymbol,transaction_type='SELL',quantity=quantity,order_type='LIMIT',price=best_price,product='NRML')
         return
     
     def write_trade(self):
         return
     
     def get_best_price(self,trading_symbol : str,transaction_type : str):
-        return
+        return self.options_contracts[trading_symbol].depth[transaction_type][0]['price']
 
     def process_ticks(self):
         """Process incoming ticks and update historical data."""
@@ -156,6 +160,17 @@ class DataStream:
                 except:
                     self.vwap = ''
         return self.vwap
+    
+    def get_index_value(self):
+        self.index_value = ''
+        while self.index_value == '':
+            with open(self.index_value_file,'r') as file:
+                self.index_value = file.read()
+                try:
+                    self.index_value = float(self.index_value)
+                except:
+                    self.index_value = 0
+        return self.index_value
     
     def get_margin(self):
         while True:
@@ -245,13 +260,13 @@ class DataStream:
 
 
 config = {
-    'trading_symbol':'SENSEX',
-    'exchange':'BFO',
-    'strike_gap':100
+    'trading_symbol':'NIFTY',
+    'exchange':'NFO',
+    'strike_gap':50
 }
 
-# stream = DataStream(config)
-# stream.login()
+stream = DataStream(config)
+stream.login()
 
-# print(stream.trading_symbols)
-# stream.start()
+print(stream.trading_symbols)
+stream.start()
