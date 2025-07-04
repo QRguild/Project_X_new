@@ -11,3 +11,9 @@ experiment_strategy.ipynb
 index.txt
 vwap.txt
 __pycache__
+backtesting_framework
+log_files
+trades_expiry
+project-x-2.pem
+strategy2.py
+script.sh

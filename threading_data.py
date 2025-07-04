@@ -11,7 +11,9 @@ import pandas as pd
 from Bardata import BarData
 import dotenv
 from dotenv import load_dotenv,set_key
+import argparse
 # from threading_nifty import WeightedNiftyIndexVWAP
+from threading_vwap import WeightedIndexVWAP
 # from threading_sensex import WeightedSensexIndexVWAP
 load_dotenv()
 
@@ -34,8 +36,9 @@ class DataStream:
         self.lock = threading.Lock()
         self.current_dir = os.getcwd()
         self.index_value_file = os.path.join(self.current_dir, 'index.txt')
-        with open(self.index_value_file,'r') as file:
-            self.index_value = float(file.read())
+        # with open(self.index_value_file,'r') as file:
+        #     self.index_value = float(file.read())
+        self.index_value = 0
         self.tick_queue = Queue()
         self.options_contracts = {}         # stores the option contracts
         self.synthetic_future = {} 
@@ -44,9 +47,10 @@ class DataStream:
         self.trading_symbols = {}
         self.strikes = {}
         self.data_queue = Queue()
-        self.vwap_file = os.path.join(self.current_dir, 'vwap.txt')
+        # self.vwap_file = os.path.join(self.current_dir, 'vwap.txt')
+        
         self.lot_size = None
-        self.vwap = None
+        self.vwap = WeightedIndexVWAP(api_key=DataStream.api_key,access_token=DataStream.access_token,trading_symbol=config['trading_symbol'])
 
         self.current_sell_margin = {symbol : None for symbol in self.trading_symbols.values()}
         self.current_buy_margin = {symbol : None for symbol in self.trading_symbols.values()}
@@ -60,11 +64,21 @@ class DataStream:
 
 
     def update_instrument(self):
+
+        vwap_thread = threading.Thread(target=self.vwap.start)
+        vwap_thread.daemon = True
+        vwap_thread.start()
+
+        while self.vwap.vwap_index_value == 0:
+            self.index_value = self.vwap.index_value
+            # time.sleep(0.25)
+
+        print(self.vwap.index_token,self.index_value)
         expiry = self.instruments.loc[self.instruments['name']==self.index_symbol,'expiry']
         expiry = sorted(expiry)
         weekly = expiry[0]
         self.lot_size = self.instruments.loc[(self.instruments['name']==self.index_symbol),'lot_size'].values[0]
-        self.instrument_tokens = self.instruments.loc[(self.instruments['name']==self.index_symbol)&(self.instruments['expiry']==weekly)&((self.instruments['strike']>self.index_value-self.strike_gap)&(self.instruments['strike']<=self.index_value+self.strike_gap)),'instrument_token'].tolist()
+        self.instrument_tokens = self.instruments.loc[(self.instruments['name']==self.index_symbol)&(self.instruments['expiry']==weekly)&((self.instruments['strike']>self.index_value-self.strike_gap)&(self.instruments['strike']<=self.index_value+self.strike_gap))&(self.instruments['instrument_type']!='FUT'),'instrument_token'].tolist()
         for token in self.instrument_tokens:
             self.trading_symbols[token] = self.instruments.loc[self.instruments['instrument_token']==token,'tradingsymbol'].values[0]
             self.strikes[token] = float(self.instruments.loc[self.instruments['instrument_token']==token,'strike'].values[0])
@@ -81,17 +95,55 @@ class DataStream:
         ws.subscribe(self.instrument_tokens)
         ws.set_mode(ws.MODE_FULL, self.instrument_tokens)  # Full mode for price and volume data
 
-    def place_buy_order(self,tradingsymbol:str,quantity:int):
+    def place_buy_order(self,tradingsymbol:str,quantity:int, entry:bool):
         best_price = self.get_best_price(tradingsymbol,'sell')
-        self.kite.place_order(variety='regular',exchange=self.exchange,tradingsymbol=tradingsymbol,transaction_type='BUY',quantity=quantity,order_type='LIMIT',price=best_price,product='NRML')
+        self.write_order(tradingsymbol,'BUY',best_price,quantity,entry)
+        try:
+            self.kite.place_order(variety='regular',exchange=self.exchange,tradingsymbol=tradingsymbol,transaction_type='BUY',quantity=quantity,order_type='LIMIT',price=best_price,product='NRML')
+        except Exception as e:
+            print(e)
         return
     
-    def place_sell_order(self,tradingsymbol:str,quantity:int):
+    def place_sell_order(self,tradingsymbol:str,quantity:int,entry:bool):
         best_price = self.get_best_price(tradingsymbol,'buy')
-        self.kite.place_order(variety='regular',exchange=self.exchange,tradingsymbol=tradingsymbol,transaction_type='SELL',quantity=quantity,order_type='LIMIT',price=best_price,product='NRML')
+        self.write_order(tradingsymbol,'SELL',best_price,quantity,entry)
+        try:
+            self.kite.place_order(variety='regular',exchange=self.exchange,tradingsymbol=tradingsymbol,transaction_type='SELL',quantity=quantity,order_type='LIMIT',price=best_price,product='NRML')
+        except Exception as e:
+            print(e)
         return
     
-    def write_trade(self):
+    def write_order(self,symbol,type,price,quantity,entry=False):
+        # write the order to a csv file for reference
+        # current_folder = os.getcwd()
+        # order = [{'variety':'regular','exchange':self.exchange,'tradingsymbol':trading_symbol,'transaction_type':'BUY','quantity':quantity,'order_type':'LIMIT','price':order_price,'product':'NRML'}]
+        # margin = self.kite.order_margins(order)
+        if type == 'BUY' and entry :
+            margin = self.current_buy_margin[symbol]
+        elif type == 'SELL' and entry :
+            margin = self.current_sell_margin[symbol]
+        elif not entry:
+            margin=0
+
+        folder_name = 'options_data'
+        folder_path = os.path.join(self.current_dir,folder_name,str(date.today()),'orders')
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+        file = "Traded_orders.csv"
+        file_path = os.path.join(folder_path,file)
+
+        file_exist = os.path.isfile(file_path)
+        with open(file_path,mode='a',newline='') as file:
+            writer = csv.writer(file)
+
+             # Write header only if file does not exist
+            if not file_exist:
+                 writer.writerow(['exchange_timestamp','tick_timestamp','trading_symbol','order_type','Price','quantity','margin_required'])
+
+             # Write the data rows
+            writer.writerow([datetime.now(),self.options_contracts[symbol].exchange_timestamp,symbol,type,price,quantity,margin])
+
+        # print("placed order")
         return
     
     def get_best_price(self,trading_symbol : str,transaction_type : str):
@@ -151,15 +203,16 @@ class DataStream:
                 print(f"Error writing data: {e}")
 
     def get_vwap(self):
-        self.vwap=''
-        while self.vwap=='':
-            with open(self.vwap_file, 'r') as file:
-                self.vwap = file.read()
-                try:
-                    self.vwap = float(self.vwap)
-                except:
-                    self.vwap = ''
-        return self.vwap
+        # self.vwap=''
+        # while self.vwap=='':
+        #     with open(self.vwap_file, 'r') as file:
+        #         self.vwap = file.read()
+        #         try:
+        #             self.vwap = float(self.vwap)
+        #         except:
+        #             self.vwap = ''
+        # return self.vwap
+        return self.vwap.vwap_index_value
     
     def get_index_value(self):
         self.index_value = ''
@@ -232,7 +285,7 @@ class DataStream:
         margin_thread.daemon = True
         margin_thread.start()
 
-        # vwap_thread = threading.Thread(target=self.vwap_nifty.get_vwap)
+        
 
         # Connect WebSocket (blocking call)
         print("Connecting WebSocket...")
@@ -259,14 +312,14 @@ class DataStream:
         return self.synthetic_future[strike]
 
 
-config = {
-    'trading_symbol':'NIFTY',
-    'exchange':'NFO',
-    'strike_gap':50
-}
+# config = {
+#     'trading_symbol':'SENSEX',
+#     'exchange':'BFO',
+#     'strike_gap':100
+# }
 
-stream = DataStream(config)
-stream.login()
+# stream = DataStream(config)
+# stream.login()
 
-print(stream.trading_symbols)
-stream.start()
+# print(stream.trading_symbols)
+# stream.start()
