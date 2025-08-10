@@ -40,13 +40,13 @@ def on_tick(ws,ticks):
     # logging.debug("Ticks: {}".format(ticks))
     # return ticks
     # ws.unsubscribe([738561])
-    ws.subscribe([265])
-    ws.set_mode(ws.MODE_FULL,[265])
+    # ws.subscribe([265])
+    # ws.set_mode(ws.MODE_FULL,[265])
     close = ticks[0]
     print(close)
-    curr = BarData(**close)
+    # curr = BarData(**close)
     # print(curr.volume_traded)
-    close_dict = curr.__dict__
+    # close_dict = curr.__dict__
     # vwap = ''
     # with open('/Users/sushrutkagde/Documents/ZerodhaAPI/indices/nifty.txt','r') as file:
     #     while vwap=='':
@@ -93,8 +93,8 @@ def on_tick(ws,ticks):
         # kws.on_close()
 
 def on_connect(ws,response):
-    ws.subscribe([738561])
-    ws.set_mode(ws.MODE_FULL,[738561])
+    ws.subscribe([136442372])
+    ws.set_mode(ws.MODE_FULL,[136442372])
 
 def on_close(ws,code,reason):
     ws.stop()

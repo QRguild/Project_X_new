@@ -61,7 +61,7 @@ class DeltaStrategy():
                     # current_time = tick['last_trade_time']
                     time_to_expiry = (self.expiry - tick['last_trade_time']).total_seconds() / (365*86400)  # Convert to days
 
-                    iv, delta, gamma = option_greeks(
+                    iv, delta, gamma, vega = option_greeks(
                         spot=self.latest_ticks[self.index_tokens[self.config['trading_symbol']]]['last_price'],
                         strike=self.strikes[tick['instrument_token']],
                         dte=time_to_expiry,
@@ -71,7 +71,7 @@ class DeltaStrategy():
                     )
 
                     self.iv[self.trading_symbols[tick['instrument_token']]] = float(iv)
-                    self.delta[tick['trading_symbol']] = float(delta)
+                    self.delta[self.trading_symbols[tick['instrument_token']]] = float(delta)
                     self.gamma[tick['trading_symbol']] = float(gamma)
 
                     tick['iv'] = iv
