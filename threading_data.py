@@ -50,6 +50,7 @@ class DataStream:
         # self.vwap_file = os.path.join(self.current_dir, 'vwap.txt')
         
         self.lot_size = None
+
         self.vwap = WeightedIndexVWAP(api_key=DataStream.api_key,access_token=DataStream.access_token,trading_symbol=config['trading_symbol'])
 
         self.current_sell_margin = {symbol : None for symbol in self.trading_symbols.values()}
@@ -200,7 +201,7 @@ class DataStream:
                     
                 # time.sleep(1)  # Update every second
             except Exception as e:
-                print(f"Error writing data: {e}")
+                print(f"Error writing data: {e} 1")
 
     def get_vwap(self):
         # self.vwap=''
