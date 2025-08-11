@@ -47,13 +47,15 @@ def option_greeks(spot, strike, rate, dte, option_type, option_price):
         new_vol = new_vol - (diff/vega1)
         iteration+=1
 
+    d1 = (np.log(spot/strike) + (rate + 0.5*(new_vol**2))*dte)/(new_vol*np.sqrt(dte))
+    d2 = (np.log(spot/strike) + (rate - 0.5*(new_vol**2))*dte)/(new_vol*np.sqrt(dte))
     gamma = nd1/(spot*new_vol*np.sqrt(dte))
-    n__d1 = np.exp(-0.5*(nd1**2))/np.sqrt(2*np.pi)
+    n__d1 = np.exp(-0.5*(d1**2))/np.sqrt(2*np.pi)
     vega = spot*n__d1*np.sqrt(dte)
 
     # print(f"Delta: {nd1}")
     # print(f"gamma: {gamma}")
-    return new_vol, nd1, gamma, vega1
+    return new_vol, nd1, gamma, vega
 
 
 # Basic validations
